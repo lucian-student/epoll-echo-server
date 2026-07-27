@@ -1,0 +1,9 @@
+{
+    "name": "cpp-epoll-echo-server",
+    "version-string": "0.1.0",
+    "description": "Epoll echo server",
+    "dependencies": [
+        "gtest",
+        "benchmark"
+    ]
+}
