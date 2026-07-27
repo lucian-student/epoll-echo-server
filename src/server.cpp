@@ -14,24 +14,33 @@
 #include <iostream> // std::cout, std::cerr
 #include <cstring>  // memset(), strerror()
 #include <cerrno>   // errno, EAGAIN, EWOULDBLOCK
+#include "utils.h"
 
 Server::Server()
 {
-    _socket_fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
-
+    _socket_fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
     if (_socket_fd == -1)
     {
         int err = errno;
-        std::cerr << "[ERROR] Bind failed (code " << err << "): "
-                  << strerror(err) << "\n";
+        throw SocketError(strerror(err));
+    }
+    _epoll_fd = epoll_create1(FD_CLOEXEC);
+    if (_socket_fd == -1)
+    {
+        int err = errno;
+        throw EpollError(strerror(err));
     }
 }
 
 Server::~Server()
 {
+    close(_socket_fd);
+    _socket_fd = -1;
+    close(_epoll_fd);
+    _epoll_fd = -1;
 }
 
-void Server::listen(const int port)
+std::expected<void, ServerError> Server::server_listen(const int port)
 {
     /*
     struct __attribute_struct_may_alias__ sockaddr
@@ -47,5 +56,17 @@ void Server::listen(const int port)
     server_addr.sin_port = htons(port);       // Port 8080 (htons converts to big-endian)
     server_addr.sin_addr.s_addr = INADDR_ANY; // Listen on all network interfaces (0.0.0.0)
 
-    int code = bind(_socket_fd, (struct sockaddr*)&server_addr, sizeof(server_addr));
+    int bind_code = bind(_socket_fd, (struct sockaddr *)&server_addr, sizeof(server_addr));
+
+    if (bind_code == -1)
+    {
+        return std::unexpected(ServerError::BIND_ERROR);
+    }
+
+    if (-1 == listen(_socket_fd, SOMAXCONN))
+    {
+        return std::unexpected(ServerError::LISTEN_ERROR);
+    }
+
+    return {};
 }
