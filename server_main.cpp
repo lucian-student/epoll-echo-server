@@ -26,7 +26,12 @@ int main(int argc, char const *argv[])
         Server server;
         auto result = server.server_listen(port);
 
-        
+        if (!result)
+        {
+            ServerError error = result.error();
+
+            std::cout << server_strreror(error) << std::endl;
+        }
     }
     catch (const boost::program_options::error &e)
     {

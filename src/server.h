@@ -1,6 +1,7 @@
 #pragma once
 #include <expected>
 #include <cstdint>
+#include <string_view>
 
 enum class ServerError : std::uint8_t
 {
@@ -11,6 +12,26 @@ enum class ServerError : std::uint8_t
     EPOLL_ADD_CLIENT,
     EPOLL_WAIT
 };
+
+static constexpr std::string_view server_strreror(ServerError error)
+{
+    switch (error)
+    {
+    case ServerError::BIND_ERROR:
+        return "BIND_ERROR";
+    case ServerError::LISTEN_ERROR:
+        return "LISTEN_ERROR";
+    case ServerError::EPOLL_ADD_SERVER:
+        return "EPOLL_ADD_SERVER";
+    case ServerError::ACCEPT_ERROR:
+        return "ACCEPT_ERROR";
+    case ServerError::EPOLL_ADD_CLIENT:
+        return "EPOLL_ADD_CLIENT";
+    case ServerError::EPOLL_WAIT:
+        return "EPOLL_WAIT";
+    }
+    return "UNKNOWN";
+}
 
 class Server
 {

@@ -10,6 +10,10 @@
 #include <unistd.h>    // read(), write(), close()
 #include <sys/epoll.h> // epoll_create1(), epoll_ctl(), epoll_wait()
 
+//
+#include <sys/signalfd.h>
+#include <signal.h>
+
 // Standard C++ Helpers (Optional, but handy)
 #include <iostream> // std::cout, std::cerr
 #include <cstring>  // memset(), strerror()
@@ -24,12 +28,13 @@ Server::Server()
         int err = errno;
         throw SocketError(strerror(err));
     }
-    _epoll_fd = epoll_create1(FD_CLOEXEC);
-    if (_socket_fd == -1)
+    _epoll_fd = epoll_create1(EPOLL_CLOEXEC);
+    if (_epoll_fd == -1)
     {
         int err = errno;
         throw EpollError(strerror(err));
     }
+    //std::cout << "constructed: " << _epoll_fd << ", " << _socket_fd << std::endl;
 }
 
 Server::~Server()
@@ -42,14 +47,6 @@ Server::~Server()
 
 std::expected<void, ServerError> Server::server_listen(const int port)
 {
-    /*
-    struct __attribute_struct_may_alias__ sockaddr
-  {
-    sa_family_t sa_family; //short int
-    char sa_data[14];
-  };
-    */
-
     struct sockaddr_in server_addr{};
 
     server_addr.sin_family = AF_INET;         // IPv4
@@ -69,7 +66,11 @@ std::expected<void, ServerError> Server::server_listen(const int port)
     server_event.data.fd = _socket_fd;
 
     if (-1 == epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, _socket_fd, &server_event))
+    {
+        int err = errno;
+        // std::cout << strerror(err) << ", " << _epoll_fd << ", " << _socket_fd << std::endl;
         return std::unexpected(ServerError::EPOLL_ADD_SERVER);
+    }
 
     epoll_event events[Server::MAXEVENTS];
 
@@ -79,8 +80,9 @@ std::expected<void, ServerError> Server::server_listen(const int port)
     epoll_event client_event{};
     client_event.events = EPOLLIN;
 
-
     std::byte buffer[Server::BUFFER_SIZE];
+
+    std::cout << "Server is listening!" << std::endl;
 
     while (true)
     {
@@ -112,10 +114,8 @@ std::expected<void, ServerError> Server::server_listen(const int port)
 
             if (flags & EPOLLIN)
             {
-                //here i can read the socket?
-                int recv_status = recv(fd,&buffer,Server::BUFFER_SIZE,0);
-
-                
+                // here i can read the socket?
+                int recv_status = recv(fd, &buffer, Server::BUFFER_SIZE, 0);
             }
             else
             {
