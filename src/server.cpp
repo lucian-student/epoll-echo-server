@@ -10,10 +10,6 @@
 #include <unistd.h>    // read(), write(), close()
 #include <sys/epoll.h> // epoll_create1(), epoll_ctl(), epoll_wait()
 
-//
-#include <sys/signalfd.h>
-#include <signal.h>
-
 // Standard C++ Helpers (Optional, but handy)
 #include <iostream> // std::cout, std::cerr
 #include <cstring>  // memset(), strerror()
@@ -34,7 +30,7 @@ Server::Server()
         int err = errno;
         throw EpollError(strerror(err));
     }
-    //std::cout << "constructed: " << _epoll_fd << ", " << _socket_fd << std::endl;
+    // std::cout << "constructed: " << _epoll_fd << ", " << _socket_fd << std::endl;
 }
 
 Server::~Server()
@@ -45,7 +41,7 @@ Server::~Server()
     _epoll_fd = -1;
 }
 
-std::expected<void, ServerError> Server::server_listen(const int port)
+std::expected<void, ServerError> Server::server_listen(const SignalWatcher &watcher, const int port)
 {
     struct sockaddr_in server_addr{};
 
@@ -67,10 +63,17 @@ std::expected<void, ServerError> Server::server_listen(const int port)
 
     if (-1 == epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, _socket_fd, &server_event))
     {
-        int err = errno;
-        // std::cout << strerror(err) << ", " << _epoll_fd << ", " << _socket_fd << std::endl;
+        // int err = errno;
+        //  std::cout << strerror(err) << ", " << _epoll_fd << ", " << _socket_fd << std::endl;
         return std::unexpected(ServerError::EPOLL_ADD_SERVER);
     }
+
+    epoll_event watcher_event{};
+    watcher_event.events = EPOLLIN;
+    watcher_event.data.fd = watcher.fd();
+
+    if (-1 == epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, watcher.fd(), &watcher_event))
+        return std::unexpected(ServerError::EPOLL_ADD_SIGNAL);
 
     epoll_event events[Server::MAXEVENTS];
 
@@ -84,7 +87,8 @@ std::expected<void, ServerError> Server::server_listen(const int port)
 
     std::cout << "Server is listening!" << std::endl;
 
-    while (true)
+    bool running = true;
+    while (running)
     {
         client_len = sizeof(client_addr);
         int client_socket = accept4(_socket_fd, reinterpret_cast<sockaddr *>(&client_addr), &client_len, SOCK_NONBLOCK | SOCK_CLOEXEC);
@@ -111,6 +115,9 @@ std::expected<void, ServerError> Server::server_listen(const int port)
             auto &event = events[i];
             uint32_t flags = event.events;
             int fd = event.data.fd;
+
+            if (fd == watcher.fd())
+                running = false;
 
             if (flags & EPOLLIN)
             {

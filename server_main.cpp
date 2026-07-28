@@ -24,7 +24,8 @@ int main(int argc, char const *argv[])
         int port = vm["port"].as<int>();
 
         Server server;
-        auto result = server.server_listen(port);
+        SignalWatcher watcher;
+        auto result = server.server_listen(watcher, port);
 
         if (!result)
         {
@@ -45,6 +46,10 @@ int main(int argc, char const *argv[])
     catch (const EpollError &err)
     {
         std::cout << "Epoll Error: " << err.what() << std::endl;
+    }
+    catch (const SignalError &err)
+    {
+        std::cout << "Signal Watcher Error: " << err.what() << std::endl;
     }
 
     return 0;
