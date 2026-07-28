@@ -59,13 +59,28 @@ std::expected<void, ServerError> Server::server_listen(const int port)
     int bind_code = bind(_socket_fd, (struct sockaddr *)&server_addr, sizeof(server_addr));
 
     if (bind_code == -1)
-    {
         return std::unexpected(ServerError::BIND_ERROR);
-    }
 
     if (-1 == listen(_socket_fd, SOMAXCONN))
-    {
         return std::unexpected(ServerError::LISTEN_ERROR);
+
+    epoll_event server_event{};
+    server_event.events = EPOLLIN;
+    server_event.data.fd = _socket_fd;
+
+    if (-1 == epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, _socket_fd, &server_event))
+        return std::unexpected(ServerError::EPOLL_ADD_SERVER);
+
+    epoll_event events[Server::MAXEVENTS];
+
+    sockaddr_in client_addr;
+    socklen_t client_len = sizeof(client_addr);
+
+    while (true)
+    {
+        int client_socket = accept4(_socket_fd, reinterpret_cast<sockaddr *>(&client_addr), &client_len, SOCK_NONBLOCK | SOCK_CLOEXEC);
+        if (client_socket == -1)
+            return std::unexpected(ServerError::EPOLL_ADD_SERVER);
     }
 
     return {};
