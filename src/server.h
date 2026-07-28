@@ -8,6 +8,8 @@ enum class ServerError : std::uint8_t
     LISTEN_ERROR,
     EPOLL_ADD_SERVER,
     ACCEPT_ERROR,
+    EPOLL_ADD_CLIENT,
+    EPOLL_WAIT
 };
 
 class Server
@@ -21,6 +23,7 @@ public:
 
 private:
     static constexpr int MAXEVENTS = 1024;
+    static constexpr int BUFFER_SIZE = 1024;
 
     int _socket_fd;
     int _epoll_fd;

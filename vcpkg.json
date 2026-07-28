@@ -4,6 +4,7 @@
     "description": "Epoll echo server",
     "dependencies": [
         "gtest",
-        "benchmark"
+        "benchmark",
+        "boost-program-options"
     ]
 }

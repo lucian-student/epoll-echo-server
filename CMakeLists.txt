@@ -15,3 +15,12 @@ if(BUILD_TESTING)
     find_package(GTest CONFIG REQUIRED)
     add_subdirectory(tests)
 endif()
+
+find_package(Boost REQUIRED COMPONENTS program_options)
+
+add_executable(
+    server_main
+    server_main.cpp
+)
+
+target_link_libraries(server_main PRIVATE epoll_server Boost::program_options)

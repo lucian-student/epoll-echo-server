@@ -74,13 +74,54 @@ std::expected<void, ServerError> Server::server_listen(const int port)
     epoll_event events[Server::MAXEVENTS];
 
     sockaddr_in client_addr;
-    socklen_t client_len = sizeof(client_addr);
+    socklen_t client_len;
+
+    epoll_event client_event{};
+    client_event.events = EPOLLIN;
+
+
+    std::byte buffer[Server::BUFFER_SIZE];
 
     while (true)
     {
+        client_len = sizeof(client_addr);
         int client_socket = accept4(_socket_fd, reinterpret_cast<sockaddr *>(&client_addr), &client_len, SOCK_NONBLOCK | SOCK_CLOEXEC);
+
         if (client_socket == -1)
-            return std::unexpected(ServerError::EPOLL_ADD_SERVER);
+        {
+            int err = errno;
+            if (err != EWOULDBLOCK)
+                return std::unexpected(ServerError::ACCEPT_ERROR);
+        }
+        else
+        {
+            client_event.data.fd = client_socket;
+            if (-1 == epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, client_socket, &client_event))
+                return std::unexpected(ServerError::EPOLL_ADD_CLIENT);
+        }
+
+        int event_count = epoll_wait(_epoll_fd, events, Server::MAXEVENTS, -1);
+        if (event_count == -1)
+            return std::unexpected(ServerError::EPOLL_WAIT);
+
+        for (int i = 0; i < event_count; i++)
+        {
+            auto &event = events[i];
+            uint32_t flags = event.events;
+            int fd = event.data.fd;
+
+            if (flags & EPOLLIN)
+            {
+                //here i can read the socket?
+                int recv_status = recv(fd,&buffer,Server::BUFFER_SIZE,0);
+
+                
+            }
+            else
+            {
+                continue;
+            }
+        }
     }
 
     return {};
